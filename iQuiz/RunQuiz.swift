@@ -70,6 +70,10 @@ struct RunQuiz: View {
                     }
                     .buttonStyle(.borderedProminent)
                     
+                    Text("Tip: Swipe right to continue or left to exit.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                    
                 } else {
                     Text(question.question)
                         .font(.largeTitle)
@@ -101,6 +105,10 @@ struct RunQuiz: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(selectedAnswer == nil)
+                    
+                    Text("Tip: Swipe right to submit or left to exit.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
             }
         }
