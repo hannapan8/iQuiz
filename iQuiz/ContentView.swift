@@ -27,41 +27,63 @@ struct Quiz: Identifiable {
     let questions: [Question]
 }
 
+struct RemoteQuiz: Codable {
+    let title: String
+    let desc: String
+    let questions: [RemoteQuestion]
+}
+
+struct RemoteQuestion: Codable {
+    let text: String
+    let answer: String
+    let answers: [String]
+}
+
 struct ContentView: View {
-    let quizzes: [Quiz] = [
-        Quiz(
-            topic: QuizTopic(title: "Mathematics",
-                              description: "Explore mathematical topics and sharpen your calculation skills!",
-                              icon: "pencil.and.list.clipboard"
-                    ),
-             questions: [
-                Question(question: "What is 9 % (10 / 4)?", answerOptions: ["0", "2", "1", "3"], correctAnswerIndex: 2),
-                Question(question: "What is (2^6) + 3?", answerOptions: ["64", "67", "66", "65"], correctAnswerIndex: 1)
-             ]
-        ),
-        Quiz(
-            topic: QuizTopic(title: "Marvel Super Heroes",
-                             description: "Test your knowledge of Marvel characters!",
-                             icon: "person.crop.artframe"
-                   ),
-            questions: [
-                Question(question: "What is the name of Thor's hammer?", answerOptions: ["Mjolnir", "Thor's hammer", "Dumbledore", "The Hammer"], correctAnswerIndex: 0),
-                Question(question: "Which character is known for saying, \"I can do this all day\"?", answerOptions: ["Iron Man", "Spider-man", "Hulk", "Captain America"], correctAnswerIndex: 3)
-            ]
-        ),
-        Quiz(
-            topic: QuizTopic(title: "Science",
-                            description: "Delve into the depths of biology, physics, chemistry, and more!",
-                            icon: "atom"
-                  ),
-            questions: [
-                Question(question: "How many elements are on the periodic table?", answerOptions: ["110", "118", "120", "113"], correctAnswerIndex: 1),
-                Question(question: "How many bones do sharks have?", answerOptions: ["256", "114", "135", "0"], correctAnswerIndex: 3)
-            ]
-        )
-    ]
     
+    @AppStorage("quizURL") private var quizURL: String =
+        "http://tednewardsandbox.site44.com/questions.json"
+    @State private var quizzes: [Quiz] = []
+    @State private var showAlert = false
+    @State private var alertMessage = ""
     @State private var showSettings = false
+    
+    func downloadQuizData(showSuccess: Bool) async {
+        do {
+            let url = URL(string: quizURL)!
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let remote = try JSONDecoder().decode([RemoteQuiz].self, from: data)
+            
+            quizzes = remote.map { rmtQuestion in
+                let topic = QuizTopic(
+                    title: rmtQuestion.title,
+                    description: rmtQuestion.desc,
+                    icon: "questionmark.circle"
+                )
+                
+                let questions = rmtQuestion.questions.map { question in
+                    let answerIndex = max(0, (Int(question.answer) ?? 1) - 1)
+                    return Question(
+                        question: question.text,
+                        answerOptions: question.answers,
+                        correctAnswerIndex: answerIndex
+                    )
+                }
+                
+                return Quiz(topic: topic, questions: questions)
+            }
+            
+            if (showSuccess) {
+                alertMessage = "Quizzes refreshed successfully!"
+                showAlert = true
+            }
+            
+            
+        } catch {
+            alertMessage = "Error downloading quiz data. Please try again."
+            showAlert = true
+        }
+    }
     
     var body: some View {
         NavigationStack {
@@ -90,6 +112,17 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("iQuiz")
+            .task {
+                if quizzes.isEmpty {
+                    await downloadQuizData(showSuccess: false)
+                }
+            }
+            
+            .alert("NOTICE", isPresented: $showAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(alertMessage)
+            }
             
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -105,11 +138,31 @@ struct ContentView: View {
                     }
                 }
             }
-            .alert("Settings go here", isPresented: $showSettings) {
-                Button("OK", role: .cancel) {
-                    
+            
+            .sheet(isPresented: $showSettings) {
+                NavigationStack {
+                    Form {
+                        Section(header: Text("Quiz Source URL")) {
+                            TextField("URL", text: $quizURL)
+
+                            Button("Check now") {
+                                Task {
+                                    await downloadQuizData(showSuccess: true)
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Settings")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") {
+                                showSettings = false
+                            }
+                        }
+                    }
                 }
             }
+            
         }
     }
 }
