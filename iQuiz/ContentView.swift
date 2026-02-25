@@ -60,8 +60,16 @@ struct ContentView: View {
     
     func downloadQuizData(showSuccess: Bool) async {
         do {
-            let url = URL(string: quizURL)!
+//            let url = URL(string: quizURL)!
+            guard let url = URL(string: quizURL), !quizURL.isEmpty else {
+                alertMessage = "Invalid URL. Please enter a valid URL and try again!"
+                showAlert = true
+                return
+            }
             let (data, _) = try await URLSession.shared.data(from: url)
+            
+            try QuizStorage.save(data: data)
+            
             let remote = try JSONDecoder().decode([RemoteQuiz].self, from: data)
             
             quizzes = remote.map { rmtQuestion in
@@ -90,8 +98,38 @@ struct ContentView: View {
             
             
         } catch {
-            alertMessage = "Error downloading quiz data. Please try again."
-            showAlert = true
+            
+            do {
+                let savedQuizData = try QuizStorage.load()
+                let remote = try JSONDecoder().decode([RemoteQuiz].self, from: savedQuizData)
+                
+                quizzes = remote.map { rmtQuestion in
+                    let topic = QuizTopic(
+                        title: rmtQuestion.title,
+                        description: rmtQuestion.desc,
+                        icon: "questionmark.circle"
+                    )
+                    
+                    let questions = rmtQuestion.questions.map { question in
+                        let answerIndex = max(0, (Int(question.answer) ?? 1) - 1)
+                        return Question(
+                            question: question.text,
+                            answerOptions: question.answers,
+                            correctAnswerIndex: answerIndex
+                        )
+                    }
+                    
+                    return Quiz(topic: topic, questions: questions)
+                }
+                
+                alertMessage = "Netword failed: using saved quizzes!"
+                showAlert = true
+                
+            } catch {
+                alertMessage = "Error! No network or quizzes available."
+                showAlert = true
+            }
+            
         }
     }
     
@@ -159,9 +197,22 @@ struct ContentView: View {
             }
             
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    // note to self: having this button still to check download now that settings is routed to the app settings
+                    Button("Check now") {
+                        Task {
+                            await downloadQuizData(showSuccess: true)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        showSettings = true
+//                        showSettings = true
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(url)
+                                }
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "gearshape.fill")
@@ -173,29 +224,29 @@ struct ContentView: View {
                 }
             }
             
-            .sheet(isPresented: $showSettings) {
-                NavigationStack {
-                    Form {
-                        Section(header: Text("Quiz Source URL")) {
-                            TextField("URL", text: $quizURL)
-
-                            Button("Check now") {
-                                Task {
-                                    await downloadQuizData(showSuccess: true)
-                                }
-                            }
-                        }
-                    }
-                    .navigationTitle("Settings")
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") {
-                                showSettings = false
-                            }
-                        }
-                    }
-                }
-            }
+//            .sheet(isPresented: $showSettings) {
+//                NavigationStack {
+//                    Form {
+//                        Section(header: Text("Quiz Source URL")) {
+//                            TextField("URL", text: $quizURL)
+//
+//                            Button("Check now") {
+//                                Task {
+//                                    await downloadQuizData(showSuccess: true)
+//                                }
+//                            }
+//                        }
+//                    }
+//                    .navigationTitle("Settings")
+//                    .toolbar {
+//                        ToolbarItem(placement: .topBarTrailing) {
+//                            Button("Done") {
+//                                showSettings = false
+//                            }
+//                        }
+//                    }
+//                }
+//            }
             
         }
     }
