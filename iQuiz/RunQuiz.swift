@@ -10,107 +10,55 @@ import SwiftUI
 struct RunQuiz: View {
     
     let quiz: Quiz
-    @State private var questionIndex = 0
-    @State private var selectedAnswer: Int? = nil
-    @State private var score = 0
-    @State private var showAnswer = false
-    @Environment(\.dismiss) var dismiss
+    let questionIndex: Int
+    let score: Int
     
+    @Binding var path: NavigationPath
+    @State private var selectedAnswer: Int? = nil
+
     var body: some View {
+        let question = quiz.questions[questionIndex]
         VStack (alignment: .center, spacing: 24) {
-            if (questionIndex >= quiz.questions.count) {
-                Text("Quiz Finished!")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                
-                if (score == quiz.questions.count) {
-                    Text("Perfect!")
-                        .font(.title3)
-                        .foregroundColor(.green)
-                } else if (score == quiz.questions.count / 2){
-                    Text("Almost there!")
-                        .font(.title3)
-                        .foregroundColor(.orange)
-                } else if (score == 0) {
-                    Text("Better luck next time!")
-                        .font(.title3)
-                        .foregroundColor(.red)
-                }
-                
-                Text("Score: \(score) of \(quiz.questions.count) correct")
-                    .font(.title3)
-                
-                Button("Next") {
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                
-            } else {
-                let question = quiz.questions[questionIndex]
-                if (showAnswer) {
-                    Text(question.question)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Correct answer: \(question.answerOptions[question.correctAnswerIndex])")
-                        .font(.headline)
-                    
-                    if (selectedAnswer == question.correctAnswerIndex) {
-                        Text("✅ You got it right!")
-                            .foregroundColor(.green)
-                    } else {
-                        Text("❌ Wrong answer!")
-                            .foregroundColor(.red)
-                    }
-                    
-                    Button("Next") {
-                        questionIndex += 1
-                        selectedAnswer = nil
-                        showAnswer = false
-                    }
-                    .buttonStyle(.borderedProminent)
-                    
-                    Text("Tip: Swipe right to continue or left to exit.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                    
-                } else {
-                    Text(question.question)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    ForEach(question.answerOptions.indices, id: \.self) { i in
-                        Button {
-                            selectedAnswer = i
-                        } label: {
-                            HStack (alignment: .center) {
-                                if (selectedAnswer == i) {
-                                    Image(systemName: "largecircle.fill.circle")
-                                } else {
-                                    Image(systemName: "circle")
-                                }
-                                Text(question.answerOptions[i])
-                                Spacer()
-                            }
+            
+            Text(question.question)
+                .font(.largeTitle)
+                .fontWeight(.bold)
+            
+            ForEach(question.answerOptions.indices, id: \.self) { i in
+                Button {
+                    selectedAnswer = i
+                } label: {
+                    HStack (alignment: .center) {
+                        if (selectedAnswer == i) {
+                            Image(systemName: "largecircle.fill.circle")
+                        } else {
+                            Image(systemName: "circle")
                         }
-                        .buttonStyle(.plain)
-                        .padding(.leading, 20)
+                        Text(question.answerOptions[i])
+                        Spacer()
                     }
-                    
-                    Button("Submit") {
-                        if (selectedAnswer == question.correctAnswerIndex) {
-                            score += 1
-                        }
-                        showAnswer = true
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(selectedAnswer == nil)
-                    
-                    Text("Tip: Swipe right to submit or left to exit.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
                 }
+                .buttonStyle(.plain)
+                .padding(.leading, 20)
             }
+            
+            NavigationLink {
+                AnswerView(quiz: quiz,
+                           questionIndex: questionIndex,
+                           selectedAnswerIndex: selectedAnswer ?? 0,
+                           userScore: score,
+                           path: $path
+                )
+            } label: {
+                Text("Submit")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedAnswer == nil)
+            
+            Text("Tip: Swipe right to submit or left to exit.")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                
         }
         .padding()
         .navigationTitle(quiz.topic.title)

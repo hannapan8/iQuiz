@@ -21,10 +21,19 @@ struct Question: Identifiable {
     let correctAnswerIndex: Int
 }
 
-struct Quiz: Identifiable {
+struct Quiz: Identifiable, Hashable {
     let id = UUID()
     let topic: QuizTopic
     let questions: [Question]
+    
+    // I had to look up how to navigate from the finish scene back to the list of quizzes, and it suggested that I use Hashable with the Navigation Link. I didn't have this issue beforehand because I didn't have separate scenes for the question, answer, and finish pages. After adding those separate scenes is where I ran into the issue, and thus had to search up a viable fix with AI!
+    static func == (left: Quiz, right: Quiz) -> Bool {
+        return left.id == right.id
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }
 
 struct RemoteQuiz: Codable {
@@ -47,6 +56,7 @@ struct ContentView: View {
     @State private var showAlert = false
     @State private var alertMessage = ""
     @State private var showSettings = false
+    @State private var path = NavigationPath()
     
     func downloadQuizData(showSuccess: Bool) async {
         do {
@@ -86,11 +96,9 @@ struct ContentView: View {
     }
     
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List(quizzes) { quiz in
-                NavigationLink {
-                    RunQuiz(quiz: quiz)
-                } label: {
+                NavigationLink(value: quiz) {
                     HStack(spacing: 16) {
                         Image(systemName: quiz.topic.icon)
                             .font(.title3)
@@ -109,9 +117,35 @@ struct ContentView: View {
                         
                     }
                     .padding(.vertical, 3)
+                    
                 }
+//                NavigationLink {
+//                    RunQuiz(quiz: quiz, questionIndex: 0, score: 0, path: $path)
+//                } label: {
+//                    HStack(spacing: 16) {
+//                        Image(systemName: quiz.topic.icon)
+//                            .font(.title3)
+//                            .frame(width: 30)
+//                        
+//                        VStack(alignment: .leading) {
+//                            Text(quiz.topic.title)
+//                                .font(.headline)
+//                                .lineLimit(1)
+//                            
+//                            Text(quiz.topic.description)
+//                                .font(.subheadline)
+//                                .foregroundColor(.secondary)
+//                        }
+//                        Spacer()
+//                        
+//                    }
+//                    .padding(.vertical, 3)
+//                }
             }
             .navigationTitle("iQuiz")
+            .navigationDestination(for: Quiz.self) { quiz in
+                RunQuiz(quiz: quiz, questionIndex: 0, score: 0, path: $path)
+            }
             .task {
                 if quizzes.isEmpty {
                     await downloadQuizData(showSuccess: false)
